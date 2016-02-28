@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,8 +14,12 @@ namespace loopRT
 {
     class loopRT
     {
-        const int scoreFrames = 128;
-        const long possibleScore = 38592310639;
+        const int scoreFrames = 1;
+        const int eventsThisRun = 128;
+        const int bytesPerEvent = 9;
+        const int candidates = 50;
+        const int parentDist = 50;
+
         public static class GlobalVar
         {
             public static string URL = "http://156.56.32.86:8080/glog/services/";
@@ -28,24 +32,22 @@ namespace loopRT
             public static int myGeneration = 0;
             public static long myScore = 0;
             public static Random random = new Random(Guid.NewGuid().GetHashCode());
-//            public static Random random = new Random();
-            public static int[,] features = new int[120000, 21];
-            public static int featureCount = 0;
+            //            public static Random random = new Random();
+            public static int featureCount = eventsThisRun * bytesPerEvent;
+
             public static int launchGeneration = 0;
             public static int myUniqueID = 0;
             public static long bestScore = -999999999999999;
             public static int MutPer100Members = 100;
-            public static int normalMut = 1250;
-            public static int alternateMut = 6250;
+            public static int normalMut = 200;
+            public static int alternateMut = 500;
             public static int xoverType = 0;
-            public static int parentDist = 50;
-            public static long[,] frameScore = new long[scoreFrames, 21];
+            public static int[,] features = new int[featureCount, candidates + 1];
+            public static long[,] frameScore = new long[scoreFrames, candidates + 1];
+            public static long[,] eventScore = new long[eventsThisRun, candidates + 1];
             public static int mutCtr = 0;
             public static int loopCtr = 0;
             public static int startLoop = 0;
-            public static int[] worstFrameNDX = new int [21];
-            public static long[] worstFrameVal = new long[21];
-
         }
 
         static void Main(string[] args)
@@ -78,28 +80,29 @@ namespace loopRT
                 GlobalVar.launchGeneration = Convert.ToInt32(args[3]);
             }
 
-//            GlobalVar.client.BaseAddress = new Uri(GlobalVar.URL);
-//            GlobalVar.response = GlobalVar.client.GetAsync("ping").Result;  
+            GlobalVar.launchGeneration = GlobalVar.random.Next(0, 500);
 
- //           System.Threading.Thread.Sleep(0); // give the server a break
+            //            GlobalVar.client.BaseAddress = new Uri(GlobalVar.URL);
+            //            GlobalVar.response = GlobalVar.client.GetAsync("ping").Result;  
+
+            //           System.Threading.Thread.Sleep(0); // give the server a break
 
             GlobalVar.popCount = 10000;
             GlobalVar.popIndex = 0;
 
             // move feature count to an xml file
-            GlobalVar.featureCount = 32678;
 
-            runLoop = 200;
-            int loopIncrement = 50;
+            runLoop = 20;
+            int loopIncrement = GlobalVar.popCount / runLoop;
 
-//            int loopIncrement = GlobalVar.popCount / runLoop;
+            //            int loopIncrement = GlobalVar.popCount / runLoop;
 
-//            if ((GlobalVar.random.Next(0, 100) < 50))
-  //          {
-    //            loopIncrement = -1 * loopIncrement;
-    //            GlobalVar.launchGeneration = GlobalVar.popCount -
-    //                (loopIncrement - GlobalVar.launchGeneration);
-    //        }
+            //            if ((GlobalVar.random.Next(0, 100) < 50))
+            //          {
+            //            loopIncrement = -1 * loopIncrement;
+            //            GlobalVar.launchGeneration = GlobalVar.popCount -
+            //                (loopIncrement - GlobalVar.launchGeneration);
+            //        }
 
 
             int loopRand = 0;
@@ -111,11 +114,11 @@ namespace loopRT
                 GlobalVar.myScore = 1;
                 GlobalVar.mutCtr = 0;
 
-                    if (GlobalVar.loopCtr > 0)
-//                        myPopNumber = myPopNumber + (GlobalVar.popCount / GlobalVar.startLoop);
-                        myPopNumber = myPopNumber + (loopIncrement);
-                    else
-                        myPopNumber = GlobalVar.launchGeneration;
+                if (GlobalVar.loopCtr > 0)
+                    //                        myPopNumber = myPopNumber + (GlobalVar.popCount / GlobalVar.startLoop);
+                    myPopNumber = myPopNumber + (loopIncrement);
+                else
+                    myPopNumber = GlobalVar.launchGeneration;
 
                 if (GlobalVar.myGeneration.Equals(0))
                 {
@@ -126,9 +129,8 @@ namespace loopRT
                     GetExistingScores(myPopNumber, 0);
                 }
 
-                GlobalVar.MutPer100Members = 
+                GlobalVar.MutPer100Members =
                     (GlobalVar.random.Next(GlobalVar.normalMut, GlobalVar.alternateMut));
-//                GlobalVar.parentDist = GlobalVar.random.Next(0, GlobalVar.parentDist) + 1;
 
                 if (!GlobalVar.myGeneration.Equals(0))
                 {
@@ -162,27 +164,27 @@ namespace loopRT
                 userProcess.StartInfo.FileName = "buildRT.exe";
                 userProcess.StartInfo.Arguments = Convert.ToString(myPopNumber) + " " +
                     Convert.ToString(GlobalVar.myUniqueID) + " " + Convert.ToString(GlobalVar.mutCtr)
-                    + " " + GlobalVar.jobName + " " + GlobalVar.worstFrameNDX[0];
+                    + " " + GlobalVar.jobName;
                 userProcess.Start();
                 userProcess.WaitForExit();
                 userProcess.Dispose();
 
                 runLoop--;
                 GlobalVar.loopCtr++;
-     //           for (int loopX = 0; loopX < GlobalVar.launchGeneration; loopX++)
-     //           {
-     //               loopRand = GlobalVar.random.Next(100, 1000);
-     //           }
-     //           System.Threading.Thread.Sleep(loopRand); // spread the processes out
+                //           for (int loopX = 0; loopX < GlobalVar.launchGeneration; loopX++)
+                //           {
+                //               loopRand = GlobalVar.random.Next(100, 1000);
+                //           }
+                //           System.Threading.Thread.Sleep(loopRand); // spread the processes out
 
                 //            Console.WriteLine("loop");
 
             }
-    //        for (int loopX = 0; loopX < GlobalVar.launchGeneration; loopX++)
-    //        {
-    //            loopRand = GlobalVar.random.Next(10000, 30000);
-    //        }
-    //        System.Threading.Thread.Sleep(loopRand); // spread the processes out
+            //        for (int loopX = 0; loopX < GlobalVar.launchGeneration; loopX++)
+            //        {
+            //            loopRand = GlobalVar.random.Next(10000, 30000);
+            //        }
+            //        System.Threading.Thread.Sleep(loopRand); // spread the processes out
 
         }
 
@@ -201,15 +203,15 @@ namespace loopRT
             while (!foundIt)
             {
                 randomPopNumber = GlobalVar.random.Next(1, 51);
-//                paramStr = "getvalue/asb_" + Convert.ToString(randomPopNumber);
+                //                paramStr = "getvalue/asb_" + Convert.ToString(randomPopNumber);
                 paramStr = "getbusy/" + Convert.ToString(randomPopNumber);
-                          GlobalVar.response = GlobalVar.client.GetAsync(paramStr).Result;  
-                        if (!GlobalVar.response.IsSuccessStatusCode)
-                        {
-                            foundIt = true;
-                        }
+                GlobalVar.response = GlobalVar.client.GetAsync(paramStr).Result;
+                if (!GlobalVar.response.IsSuccessStatusCode)
+                {
+                    foundIt = true;
+                }
             }
-  //          paramStr = "setvalue/asb_" + Convert.ToString(randomPopNumber) + "/*/60";
+            //          paramStr = "setvalue/asb_" + Convert.ToString(randomPopNumber) + "/*/60";
             paramStr = "setbusy/" + Convert.ToString(randomPopNumber) + "/20";
             GlobalVar.response = GlobalVar.client.GetAsync(paramStr).Result;
             return randomPopNumber;
@@ -225,7 +227,8 @@ namespace loopRT
             string fn = "";
 
             GlobalVar.myScore = 0;
-            GlobalVar.featureCount = 65536;
+//            GlobalVar.featureCount = eventsThisRun * 8;
+//            GlobalVar.featureCount = 65536;
 
             featureIntMin = 0;
             featureIntMax = 255;
@@ -258,9 +261,6 @@ namespace loopRT
             buildChars = new char[350000];
             string featureString = "";
             string fn = "";
-            int frameSize = (GlobalVar.featureCount / scoreFrames);
-            int thisFrame = 0;
-            int frameNDX = 0;
             try
             {
                 fn = "/N/u/smccaula/Geode/moon/mx" + Convert.ToString(popMember);
@@ -279,24 +279,40 @@ namespace loopRT
                         GlobalVar.features[i, parent] = 255;
                     if (GlobalVar.features[i, parent] < 0)
                         GlobalVar.features[i, parent] = 0;
-                    if (thisFrame.Equals(GlobalVar.worstFrameNDX[parent]))
-                    {
-                        GlobalVar.features[i, parent] = 0; 
-                    }
-               //     if ((GlobalVar.random.Next(0, 100) < 50) && (parent.Equals(0)))
-               //         GlobalVar.features[i, parent] = 0; // dsm temporary
-                    frameNDX++;
-                    if (frameNDX > frameSize)
-                    {
-                        frameNDX = 0;
-                        thisFrame++;
-                    }
+      //              if ((GlobalVar.random.Next(0, 100) < 150))//
+          //                                GlobalVar.features[i, 0] = 0; // dsm experiment start with mostly zero
+       //         GlobalVar.features[i, parent] = GlobalVar.random.Next(0, 255);
+//                    if ((GlobalVar.random.Next(0, 100) < 50) && (parent.Equals(0)))
+  //                      GlobalVar.features[i, 0] = 0; // dsm experiment start with mostly zero
+
                 }
 
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.ToString());
+            }
+        }
+
+        static void GetEventScores(int popMember, int parent)
+        {
+            string fn = "/N/u/smccaula/Geode/moon/fx" + Convert.ToString(popMember);
+            try
+            {
+                BinaryReader scoreFile = new BinaryReader(File.OpenRead(fn));
+
+                for (int eventX = 0; eventX < eventsThisRun; eventX++)
+                {
+                    GlobalVar.eventScore[eventX, parent] = scoreFile.ReadInt64();
+                }
+                scoreFile.Close();
+            }
+            catch
+            {
+                for (int fx = 0; fx < eventsThisRun; fx++)
+                {
+                    GlobalVar.eventScore[fx, parent] = GlobalVar.eventScore[fx, 0] - 1;
+                }
             }
         }
 
@@ -325,20 +341,9 @@ namespace loopRT
             {
                 GlobalVar.frameScore[fx, parent] = GlobalVar.frameScore[fx, parent] + (GlobalVar.frameScore[fx + 1, parent] / 2);
             }
-            GlobalVar.worstFrameNDX[parent] = 0;
-            GlobalVar.worstFrameVal[parent] = GlobalVar.frameScore[GlobalVar.worstFrameNDX[parent],parent];
-
-            for (int fx = 0; fx < scoreFrames; fx++)
-            {
-                if (GlobalVar.frameScore[fx,parent] < GlobalVar.worstFrameVal[parent])
-                {
-                    GlobalVar.worstFrameNDX[parent] = fx;
-                    GlobalVar.worstFrameVal[parent] = GlobalVar.frameScore[fx, parent];
-                }
-            }
-            GlobalVar.frameScore[GlobalVar.worstFrameNDX[parent], parent] = 0;
 
             GetExistingCharacteristics(popMember, parent);
+            GetEventScores(popMember, parent);
         }
 
         static void NextGenerationValues(int popMember)
@@ -352,11 +357,11 @@ namespace loopRT
             int xP1 = 0;
             int xP2 = 0;
             int parentX = 1;
-            int neighborhood = GlobalVar.random.Next(1, (GlobalVar.parentDist + 1));
+            int neighborhood = GlobalVar.random.Next(1, (parentDist + 1));
             nextNeighbor = popMember;
             int sameParent = 0;
 
-            for (int nx = 0; nx < 5; nx++)
+            for (int nx = 0; nx < (candidates / 2); nx++)
             {
                 if ((nextNeighbor - neighborhood) < 1)
                     nextNeighbor = GlobalVar.popCount;
@@ -366,7 +371,7 @@ namespace loopRT
             }
 
             nextNeighbor = popMember;
-            for (int nx = 0; nx < 5; nx++)
+            for (int nx = 0; nx < (candidates / 2); nx++)
             {
                 nextNeighbor = nextNeighbor + neighborhood;
                 if (nextNeighbor >= GlobalVar.popCount)
@@ -386,7 +391,7 @@ namespace loopRT
                 xP1 = 0;
                 bestScore = GlobalVar.frameScore[i, xP1];
                 //                if (bestScore < 0) bestScore = 0;
-                for (int px = 1; px < 11; px++)
+                for (int px = 1; px < ((candidates / 2) + 1); px++)
                 {
                     if ((GlobalVar.frameScore[i, px] >= GlobalVar.frameScore[i, xP1]))
                     {
@@ -399,7 +404,7 @@ namespace loopRT
                 xP2 = 0;
                 bestScore = GlobalVar.frameScore[i, xP2];
                 //                if (bestScore < 0) bestScore = 0;
-                for (int px = 6; px < 21; px++)
+                for (int px = ((candidates / 2) + 1); px < (candidates + 1); px++)
                 {
                     if ((GlobalVar.frameScore[i, px] >= GlobalVar.frameScore[i, xP2]))
                     {
@@ -413,10 +418,11 @@ namespace loopRT
 
                 int frameSize = (GlobalVar.featureCount / scoreFrames);
 
-                GlobalVar.xoverType = 0; // 0 is random, 1 is xover
-                if ((GlobalVar.random.Next(0, 100) < 50))
-              //      if ((GlobalVar.random.Next(0, 100) < 80))
-                        GlobalVar.xoverType = 1; // 
+                GlobalVar.xoverType = 2; // 0 is random, 1 is xover
+                if ((GlobalVar.random.Next(0, 100) < 10))
+                    GlobalVar.xoverType = 0; // 
+                if ((GlobalVar.random.Next(0, 100) < 10))
+                    GlobalVar.xoverType = 1; // 
                 int xoverLoc = GlobalVar.random.Next(0, frameSize);
 
                 int xPsave = xP1;
@@ -426,43 +432,66 @@ namespace loopRT
                     xP2 = xPsave;
                 }
 
+                int FeatureNDX = 0;
+                int FeatureCTR = 0;
+
                 for (int fx = 0; fx < frameSize; fx++)
                 {
                     if (fIndex < GlobalVar.featureCount)
                     {
+                        long fScore1 = GlobalVar.eventScore[FeatureNDX, xP1];
+                        long fScore2 = GlobalVar.eventScore[FeatureNDX, xP2];
+
                         parentIndex = xP1;
+                        if (fScore2 > fScore1) // dsm
+                            parentIndex = xP2;
                         if ((GlobalVar.xoverType.Equals(0)) && (GlobalVar.random.Next(0, 100) < 50)) // - random no crossover
                             parentIndex = xP2;
-                        if ((!GlobalVar.xoverType.Equals(0)) && (fx > xoverLoc)) // - crossover
+//                        if ((GlobalVar.xoverType.Equals(0)) && (GlobalVar.random.Next(0, 100) < 20)) // - random no crossover
+//                            parentIndex = xP1;
+                       if ((GlobalVar.xoverType.Equals(1)) && (fx > xoverLoc)) // - crossover
                             parentIndex = xP2;
 
-//                        if (P2Score > P1Score) // dsm
-//                            parentIndex = xP2;
 
                         GlobalVar.features[fIndex, 0] = GlobalVar.features[fIndex, parentIndex];
+                        FeatureCTR++;
+                        if (FeatureCTR > bytesPerEvent)
+                        {
+                            FeatureNDX++;
+                            FeatureCTR = 0;
+                        }
                         fIndex++;
                     }
-                }
+                } 
             }
-
+            
             for (int i = 0; i < GlobalVar.featureCount; i++)
             {
+                bool mutAway = true;
                 if (GlobalVar.random.Next(0, (GlobalVar.featureCount * 100)) < GlobalVar.MutPer100Members)
                 {
-                    GlobalVar.mutCtr++;
-                    mutatePosition = GlobalVar.random.Next(0, 8);
-                    mutateValue = mutateArray[mutatePosition];
-                    if (noMutation) mutateValue = 0;
-                    if (GlobalVar.random.Next(0, 100) < 50)
-                        mutateValue = -1 * mutateValue;
-                    GlobalVar.features[i, 0] = GlobalVar.features[i, 0] + mutateValue;
-                    if (GlobalVar.features[i, 0] < 0)
-                        GlobalVar.features[i, 0] = GlobalVar.features[i, 0] - (2 * mutateValue);
-                    if (GlobalVar.features[i, 0] > 255)
-                        GlobalVar.features[i, 0] = GlobalVar.features[i, 0] - (2 * mutateValue);
+                    while (mutAway) 
+                    {
+                        GlobalVar.mutCtr++;
+                        mutatePosition = GlobalVar.random.Next(0, 8);
+                        mutateValue = mutateArray[mutatePosition];
+                        if (GlobalVar.random.Next(0, 100) < 50)
+                            mutateValue = -1 * mutateValue;
+                        GlobalVar.features[i, 0] = GlobalVar.features[i, 0] + mutateValue;
+                        if (GlobalVar.features[i, 0] < 0)
+                            GlobalVar.features[i, 0] = GlobalVar.features[i, 0] - (2 * mutateValue);
+                        if (GlobalVar.features[i, 0] > 255)
+                            GlobalVar.features[i, 0] = GlobalVar.features[i, 0] - (2 * mutateValue);
+                        if (GlobalVar.random.Next(0, (100)) < 90)
+                        {
+                            mutAway = false;
+                        }
+                    }
+
                 }
-            }
+            } 
         }
 
     }
 }
+

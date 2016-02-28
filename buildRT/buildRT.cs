@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,20 +13,19 @@ namespace buildRT
 {
     class buildRT
     {
-
-        const int bytesPerEvent = 8;
+        const int scoreFrames = 1;
+        const int eventsThisRun = 128;
+        const int bytesPerEvent = 9;
         const double samplesSecond = 44100.0;
         const int maxSamples = 44100 * 180; // 180 seconds max
-        const int scoreFrames = 128;
 
         public static class GlobalVar
         {
             public static int myUniqueID = 0;
             public static string jobName = "test";
             public static int endTime = 0;
-            public static int eventsThisRun = 4096;
             public static int featureCount = (bytesPerEvent * eventsThisRun);
-            public static int[] features = new int[350000];
+            public static int[] features = new int[featureCount];
             public static long[] targetWav = new long[maxSamples];
             public static int samples = 0;
 
@@ -40,6 +39,7 @@ namespace buildRT
             public static int[] CMIXamp = new int[eventsThisRun];
             public static int[] CMIXfreq = new int[eventsThisRun];
             public static int[] CMIXenv = new int[eventsThisRun];
+            public static int[] CMIXplay = new int[eventsThisRun];
 
             public static long[] frameScore = new long[scoreFrames];
             public static bool wavErr = false;
@@ -48,7 +48,7 @@ namespace buildRT
             public static long myScore = 0;
             public static long bestScore = 0;
             public static Random random = new Random(Guid.NewGuid().GetHashCode());
-//            public static Random random = new Random();
+            //            public static Random random = new Random();
             public static int soundPos = 0;
             public static int popMember = 0;
             public static int activeFeatures = 0;
@@ -86,8 +86,8 @@ namespace buildRT
             public static int mutCtr = 0;
         }
 
-        
-        
+
+
         static void Main(string[] args)
         {
             GlobalVar.stopWatch = new Stopwatch();
@@ -97,9 +97,13 @@ namespace buildRT
 
             GlobalVar.freqLookup[0] = 0.0;
             GlobalVar.freqLookup[1] = 27.5;
-            for (int i = 2; i < (65536); i++)
+            for (int i = 2; i < (6869); i++)
             {
                 GlobalVar.freqLookup[i] = GlobalVar.freqLookup[i - 1] * freqInterval;
+            }
+            for (int i = 6869; i < (65536); i++)
+            {
+                GlobalVar.freqLookup[i] = (2 * GlobalVar.freqLookup[i - 6868]);
             }
 
 
@@ -134,31 +138,34 @@ namespace buildRT
             {
                 OutputAllFiles();
             }
-            
+
         }
 
         static void OutputAllFiles()
         {
             double displayPct = 0.00;
-            double framePct = 0.00;
-            GlobalVar.myScore = (GlobalVar.totalDiff - AlternateScore(0, GlobalVar.samples));
+//            double framePct = 0.00;
+            GlobalVar.myScore = ((2 * GlobalVar.totalDiff) - AlternateScore(0, GlobalVar.samples));
 
             if (!WriteScoreFile())
                 return;
+            if (!FeatureScoreFile())
+                return;
+
             GlobalVar.ts = GlobalVar.stopWatch.Elapsed;
 
             GlobalVar.es3 = GlobalVar.ts.Seconds + (60 * GlobalVar.ts.Minutes)
                 + (60 * 60 * GlobalVar.ts.Hours) + (60 * 60 * 24 * GlobalVar.ts.Days);
 
-            char[] buildChars;
-            buildChars = new char[350000];
+//            char[] buildChars;
+//            buildChars = new char[350000];
 
-            int nonZero = 0;
-            for (int i = 0; i < GlobalVar.featureCount; i++)
-            {
-                buildChars[i] = (char)GlobalVar.features[i];
-                if (GlobalVar.features[i] > 0) nonZero++;
-            }
+//            int nonZero = 0;
+//            for (int i = 0; i < GlobalVar.featureCount; i++)
+//            {
+//                buildChars[i] = (char)GlobalVar.features[i];
+//                if (GlobalVar.features[i] > 0) nonZero++;
+//            }
             //    Console.WriteLine("cmix  write pop " + GlobalVar.popMember + " " + nonZero);
 
             String logFile = Convert.ToString(GlobalVar.popMember) + ".log";
@@ -167,30 +174,24 @@ namespace buildRT
             GlobalVar.es4 = GlobalVar.ts.Seconds + (60 * GlobalVar.ts.Minutes)
                 + (60 * 60 * GlobalVar.ts.Hours) + (60 * 60 * 24 * GlobalVar.ts.Days);
 
-            displayPct = (100.00 * GlobalVar.myScore) / (1.0 * GlobalVar.totalDiff);
-
+            displayPct = (100.00 * GlobalVar.myScore) / (2.0 * GlobalVar.totalDiff);
 
             string frameDisplay = "";
             for (int fx = 0; fx < scoreFrames; fx++)
             {
-                if (GlobalVar.potentialDiff[fx].Equals(0))
-                {
-                    frameDisplay = frameDisplay + "E" + GlobalVar.frameScore[fx].ToString() + ",";
-                }
-                else
-                {
-                    framePct = (100.00 * GlobalVar.frameScore[fx]) / GlobalVar.potentialDiff[fx];
-                    frameDisplay = frameDisplay + framePct.ToString("##0.00") + ",";
-                }
-
+                frameDisplay = frameDisplay + fx.ToString() + ":"
+                    + ((GlobalVar.frameScore[fx]) / (2 * (GlobalVar.potentialDiff[fx] / 100))).ToString() + ",";
+//                + (GlobalVar.potentialDiff[fx] / 100).ToString("##0") + ","
+  //              + (GlobalVar.frameScore[fx] / 100).ToString("##0") + ",";
             }
 
             using (StreamWriter sw = File.AppendText(logFile))
             {
                 sw.WriteLine(GlobalVar.popMember + " Pct : " + displayPct.ToString("##0.00") +
-                    " Score : " + GlobalVar.myScore.ToString() + " of " + GlobalVar.totalDiff.ToString()
+                    " Score : " + GlobalVar.myScore.ToString() + " of " + (2 * GlobalVar.totalDiff).ToString()
                     + " Frames : " + frameDisplay
-                    + " non-Zero : " + nonZero.ToString() + " Lines : " + GlobalVar.scoreLines.ToString()
+                  //  + " non-Zero : " + nonZero.ToString() 
+                    + " Lines : " + GlobalVar.scoreLines.ToString()
                     + " Elapsed : " + GlobalVar.es1.ToString() + "," + GlobalVar.es2.ToString() + "," + GlobalVar.es3.ToString() + "," + GlobalVar.es4.ToString()
                     + " mut : " + GlobalVar.mutCtr.ToString()
                     + " ID : " + GlobalVar.myUniqueID.ToString()
@@ -198,22 +199,22 @@ namespace buildRT
                     );
             }
 
+            // dsm took out 2/22 - does nothing???
+//            string bs = new string(buildChars);
+//            bs = bs.Substring(0, GlobalVar.featureCount);
 
-            string bs = new string(buildChars);
-            bs = bs.Substring(0, GlobalVar.featureCount);
-
-            string fn = "";
-            fn = "/N/u/smccaula/Geode/moon/mx" + Convert.ToString(GlobalVar.popMember);
-            File.WriteAllText(fn, bs);
+ //           string fn = "";
+ //           fn = "/N/u/smccaula/Geode/moon/mx" + Convert.ToString(GlobalVar.popMember);
+//            File.WriteAllText(fn, bs);
             //            WaitForFile(fn);
         }
 
         static bool PreProcess()
         {
             // these were set in XML
-                       //     GlobalVar.myGeneration = 0; not used
-                       //     GlobalVar.bestScore = 0; not used
-                        //    GlobalVar.popMember = 0; passed as parameter
+            //     GlobalVar.myGeneration = 0; not used
+            //     GlobalVar.bestScore = 0; not used
+            //    GlobalVar.popMember = 0; passed as parameter
 
 
             if (!GetExistingCharacteristics(GlobalVar.popMember))
@@ -313,6 +314,9 @@ namespace buildRT
             string envName = "env1";
             double durIncrement = 0.0;
             double secondsInFrame = 0.0;
+  //          double playThreshold = 10000;
+            double playThreshold = 0;
+            double playCalc = 0;
 
             GlobalVar.scoreLines = 0;
             //loop through events
@@ -320,20 +324,24 @@ namespace buildRT
             {
                 waveName = "waves";
                 envName = "env1";
+                playFeature = true; // test
+                GlobalVar.CMIXplay[eventX] = 0;
 
                 tempFreq = GlobalVar.freqLookup[GlobalVar.CMIXfreq[eventX]];
                 tempAmp = GlobalVar.CMIXamp[eventX];
                 tempDur = GlobalVar.CMIXdur[eventX];
 
-                if (tempDur > ((256 * 128) - 1))
+                if (tempAmp > ((256 * 128) - 1))
                 {
-                    tempDur = tempDur - (256 * 128);
-                    playFeature = true;
+                    tempAmp = tempAmp - (256 * 128);
+         //           GlobalVar.CMIXstart[eventX] = GlobalVar.CMIXstart[eventX] + 256;
+                    playFeature = false;
                 }
 
                 envName = "env" + GlobalVar.CMIXenv[eventX].ToString();
 
                 tempStart = GlobalVar.CMIXstart[eventX]; // 0-255 samples offset
+       //         tempStart = tempStart + 24;//dsm change
 
                 //duration 
                 // first find how many cycles fit in a frame
@@ -342,21 +350,25 @@ namespace buildRT
                 tempLength = (Convert.ToDouble((GlobalVar.samples / samplesSecond))); // length in seconds
                 secondsInFrame = tempLength / scoreFrames;
 
-                durIncrement = (secondsInFrame / ((256 * 128) - 1));
+                durIncrement = 1 / samplesSecond;
                 tempDur = tempDur * durIncrement;
 
-                tempOffset = (eventX * tempLength) / GlobalVar.eventsThisRun;
+                tempOffset = (eventX * tempLength) / eventsThisRun;
                 tempStart = (tempStart / samplesSecond); // start offset in samples
-                tempStart = tempStart + tempOffset;
+      //          tempStart = tempStart + tempOffset;
 
                 tempPan = 0;
 
                 if ((tempStart + tempDur) > tempLength)
-                    tempAmp = 0;  //  don't play past the end of the target file
+                    tempDur = tempLength - tempStart;
+//                    playFeature = false;  //  don't play past the end of the target file
+
+                if (tempDur < 0.0)
+                    tempDur = 0.0;
 
                 if (tempStart < 0.0)
-                    tempAmp = 0;  //  don't play before begin
-
+                    tempStart = 0.0;
+                
                 // DSM
 //                if (tempFreq < 40.0)
  //                   tempAmp = 0.0;
@@ -367,19 +379,29 @@ namespace buildRT
 //                if (tempAmp < 2000.0)
 //                    tempAmp = 0.0;
 
-                if ((playFeature) && (tempAmp > 0) && (tempFreq > 0) && (tempDur > 0))
+                playCalc = tempDur * tempAmp;
+                if (playCalc < playThreshold)
+                    playFeature = false;
+
+                if ((tempAmp == 0) || (tempFreq == 0) || (tempDur == 0))
+                    playFeature = false;
+
+
+                if ((playFeature))
                 {
+                    GlobalVar.CMIXplay[eventX] = 1;
                     GlobalVar.scoreLines++;
                     scoreText.WriteLine("WAVETABLE("
                         + Convert.ToString(tempStart) + ","
                         + Convert.ToString(tempDur) + "," + envName + "*"
                         + Convert.ToString(tempAmp) + ","
                         + Convert.ToString(tempFreq) + ","
-                        + Convert.ToString(tempPan) + "," + waveName + ")");
+                        + Convert.ToString(tempPan) + "," + waveName + ")"
+                        +  "//comments, " + Convert.ToString(tempAmp * tempDur));
                 }
 
                 eventX++;
-                if (eventX == GlobalVar.eventsThisRun) MoreEvents = false;
+                if (eventX == eventsThisRun) MoreEvents = false;
             }
             scoreText.Close();
 
@@ -477,6 +499,24 @@ namespace buildRT
             return (runningScore);
         }
 
+        static long ScoreFeature(long startX, long endX)
+        {
+            long runningScore = 0;
+            long sampleVariance = 0;
+
+//            if (endX > GlobalVar.samples)
+//                endX = GlobalVar.samples;
+
+            for (long i = startX; i < endX; i++)
+            {
+                sampleVariance = Math.Abs(GlobalVar.targetWav[i] - GlobalVar.calcWav[i]);
+                runningScore = runningScore + ((Math.Abs(GlobalVar.targetWav[i]) - sampleVariance));
+//                runningScore = runningScore + (Math.Abs(GlobalVar.calcWav[i])/2);
+            }
+
+            return (runningScore);
+        }
+
         static bool WriteScoreFile()
         {
             string fn = "/N/u/smccaula/Geode/moon/sx" + Convert.ToString(GlobalVar.popMember);
@@ -486,14 +526,57 @@ namespace buildRT
             {
                 int startX = fx * (GlobalVar.samples / scoreFrames);
                 int endX = startX + (GlobalVar.samples / scoreFrames);
-                GlobalVar.frameScore[fx] = GlobalVar.potentialDiff[fx] - AlternateScore(startX, endX);
+                GlobalVar.frameScore[fx] = (2 * GlobalVar.potentialDiff[fx]) - AlternateScore(startX, endX);
                 scoreFile.Write(Convert.ToInt64(GlobalVar.frameScore[fx]));
             }
             scoreFile.Close();
-            //            if (!WaitForFile(fn))
-            //                return (false);
             return (true);
         }
+
+        static bool FeatureScoreFile()
+        {
+
+            string fn = "/N/u/smccaula/Geode/moon/fx" + Convert.ToString(GlobalVar.popMember);
+            BinaryWriter scoreFile = new BinaryWriter(File.Open(fn, FileMode.Create));
+            long tempStart = 0;
+            long tempEnd = 0;
+
+            long eventInterval = (GlobalVar.samples / eventsThisRun);
+            long tempScore = 0;
+            double calcStart = 0.0;
+
+            for (int eventX = 0; eventX < eventsThisRun; eventX++)
+            {
+                tempScore = -1;
+                calcStart = GlobalVar.samples / eventsThisRun;
+                calcStart = eventX * calcStart;
+                tempStart = Convert.ToInt64(calcStart);
+                tempStart = 0;  // dsm no offset this run
+                tempStart = tempStart + GlobalVar.CMIXstart[eventX]; // event start in samples
+                if (tempStart < 0) tempStart = 0;
+                tempEnd = tempStart + GlobalVar.CMIXdur[eventX];
+                if (tempEnd > GlobalVar.samples) tempEnd = GlobalVar.samples;
+
+                if (tempEnd.Equals(tempStart))
+                    tempEnd = tempStart + 1;
+
+                if (GlobalVar.CMIXplay[eventX] > 0)
+                {
+                    tempScore = 0;
+                    for (long i = tempStart; i < tempEnd; i++)
+                    { 
+                        tempScore = (2 * Math.Abs(GlobalVar.targetWav[i])); // larger score is better
+                        tempScore = tempScore - (Math.Abs(GlobalVar.targetWav[i] - GlobalVar.calcWav[i]));
+                    }
+//                    tempScore = tempScore / (tempEnd - tempStart); // average over length
+                }
+
+                scoreFile.Write(Convert.ToInt64(tempScore));
+            }
+            scoreFile.Close();
+            return (true);
+        }
+
 
         static bool GetExistingCharacteristics(int popMember)
         {
@@ -506,16 +589,11 @@ namespace buildRT
             {
                 fn = "/N/u/smccaula/Geode/moon/mx" + Convert.ToString(popMember);
 
-                //                if (!WaitForFile(fn))
-                //                {
-                //                    return (false);
-                //                }
-
                 featureString = File.ReadAllText(fn);
                 buildChars = featureString.ToCharArray();
                 Array.Resize(ref buildChars, GlobalVar.featureCount);
 
-                int nonZero = 0;
+//                int nonZero = 0;
                 for (int i = 0; i < GlobalVar.featureCount; i++)
                 {
                     GlobalVar.features[i] = buildChars[i];
@@ -523,8 +601,8 @@ namespace buildRT
                         GlobalVar.features[i] = 255;
                     if (GlobalVar.features[i] < 0)
                         GlobalVar.features[i] = 0;
-                    if (GlobalVar.features[i] > 0)
-                        nonZero++;
+  //                  if (GlobalVar.features[i] > 0)
+    //                    nonZero++;
                 }
                 //        Console.WriteLine("cmix  read pop " + GlobalVar.popMember + " " + nonZero);
 
@@ -543,14 +621,14 @@ namespace buildRT
         {
             int CMIXSize = bytesPerEvent;
 
-            for (int i = 0; i < GlobalVar.eventsThisRun; i++)
+            for (int i = 0; i < eventsThisRun; i++)
             {
                 GlobalVar.CMIXamp[i] = GlobalVar.features[0 + (i * CMIXSize)] + (256 * GlobalVar.features[1 + (i * CMIXSize)]);
                 GlobalVar.CMIXfreq[i] = GlobalVar.features[2 + (i * CMIXSize)] + (256 * GlobalVar.features[3 + (i * CMIXSize)]);
                 GlobalVar.CMIXenv[i] = GlobalVar.features[4 + (i * CMIXSize)];
                 GlobalVar.CMIXdur[i] = GlobalVar.features[5 + (i * CMIXSize)] + (256 * GlobalVar.features[6 + (i * CMIXSize)]);
-                GlobalVar.CMIXstart[i] = GlobalVar.features[7 + (i * CMIXSize)];
-//                GlobalVar.CMIXstart[i] = GlobalVar.features[6 + (i * CMIXSize)] + (256 * GlobalVar.features[7 + (i * CMIXSize)]);
+                GlobalVar.CMIXstart[i] = GlobalVar.features[7 + (i * CMIXSize)] + (256 * GlobalVar.features[8 + (i * CMIXSize)]);
+                //                GlobalVar.CMIXstart[i] = GlobalVar.features[6 + (i * CMIXSize)] + (256 * GlobalVar.features[7 + (i * CMIXSize)]);
             }
         }
 
@@ -575,7 +653,7 @@ namespace buildRT
                         return false;
                     }
 
-                    System.Threading.Thread.Sleep(25);
+            //        System.Threading.Thread.Sleep(25);
                 }
             }
 
@@ -634,12 +712,6 @@ namespace buildRT
             }
             int genSamples = wavSize / 2;
 
-            //           Console.WriteLine("samples: " + GlobalVar.samples);
-
-            // here can set frame size etc.
-
-            //      GlobalVar.eventsThisRun = 960;
-            //     GlobalVar.featureCount = (8 * GlobalVar.eventsThisRun);
 
             wavArray = new long[GlobalVar.samples];
 
@@ -662,3 +734,4 @@ namespace buildRT
 
     }
 }
+

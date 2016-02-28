@@ -95,7 +95,7 @@ namespace launchRT
                     Convert.ToString(myUniqueID) + " " + Convert.ToString(startValue);
                 getProcess[i].Start();
 
-                System.Threading.Thread.Sleep(5); // offset them to get unique random seeds
+           //     System.Threading.Thread.Sleep(5); // offset them to get unique random seeds
             }
             launchCtr = maxConcurrent;
 
@@ -137,8 +137,8 @@ namespace launchRT
                         }
                     }
                 }
-                int sleepRand = random.Next(1000, 5000);
-                System.Threading.Thread.Sleep(sleepRand); // spread the processes out
+           //     int sleepRand = random.Next(1000, 5000);
+          //      System.Threading.Thread.Sleep(sleepRand); // spread the processes out
 
 //                System.Threading.Thread.Sleep(5); 
 
