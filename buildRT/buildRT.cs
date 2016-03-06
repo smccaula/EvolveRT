@@ -14,10 +14,11 @@ namespace buildRT
     class buildRT
     {
         const int scoreFrames = 1;
-        const int eventsThisRun = 128;
-        const int bytesPerEvent = 9;
+        const int eventsThisRun = 4;
+        const int bytesPerEvent = 10;
         const double samplesSecond = 44100.0;
         const int maxSamples = 44100 * 180; // 180 seconds max
+        const int freqShift = 6868;
 
         public static class GlobalVar
         {
@@ -40,6 +41,7 @@ namespace buildRT
             public static int[] CMIXfreq = new int[eventsThisRun];
             public static int[] CMIXenv = new int[eventsThisRun];
             public static int[] CMIXplay = new int[eventsThisRun];
+            public static int[] CMIXshift = new int[eventsThisRun];
 
             public static long[] frameScore = new long[scoreFrames];
             public static bool wavErr = false;
@@ -84,6 +86,7 @@ namespace buildRT
             public static Stopwatch stopWatch;
             public static TimeSpan ts;
             public static int mutCtr = 0;
+            public static int skipCtr = 0;
         }
 
 
@@ -97,13 +100,13 @@ namespace buildRT
 
             GlobalVar.freqLookup[0] = 0.0;
             GlobalVar.freqLookup[1] = 27.5;
-            for (int i = 2; i < (6869); i++)
+            for (int i = 2; i < (freqShift + 1); i++)
             {
                 GlobalVar.freqLookup[i] = GlobalVar.freqLookup[i - 1] * freqInterval;
             }
-            for (int i = 6869; i < (65536); i++)
+            for (int i = (freqShift + 1); i < (65536); i++)
             {
-                GlobalVar.freqLookup[i] = (2 * GlobalVar.freqLookup[i - 6868]);
+                GlobalVar.freqLookup[i] = (2 * GlobalVar.freqLookup[i - freqShift]);
             }
 
 
@@ -176,6 +179,24 @@ namespace buildRT
 
             displayPct = (100.00 * GlobalVar.myScore) / (2.0 * GlobalVar.totalDiff);
 
+            char[] buildChars;
+            buildChars = new char[350000];
+
+            BackFromParamaters();
+            for (int i = 0; i < GlobalVar.featureCount; i++)
+            {
+                buildChars[i] = (char)GlobalVar.features[i];
+            }
+
+            string bs = new string(buildChars);
+            bs = bs.Substring(0, GlobalVar.featureCount);
+
+            string fn = "";
+            fn = "/N/u/smccaula/Geode/moon/mx" + Convert.ToString(GlobalVar.popMember);
+            File.WriteAllText(fn, bs);
+            fn = "/N/u/smccaula/Geode/moon/xx" + Convert.ToString(GlobalVar.popMember);
+            File.WriteAllText(fn, bs);
+
             string frameDisplay = "";
             for (int fx = 0; fx < scoreFrames; fx++)
             {
@@ -190,12 +211,12 @@ namespace buildRT
                 sw.WriteLine(GlobalVar.popMember + " Pct : " + displayPct.ToString("##0.00") +
                     " Score : " + GlobalVar.myScore.ToString() + " of " + (2 * GlobalVar.totalDiff).ToString()
                     + " Frames : " + frameDisplay
-                  //  + " non-Zero : " + nonZero.ToString() 
+                    + " Skips : " + GlobalVar.skipCtr.ToString() 
                     + " Lines : " + GlobalVar.scoreLines.ToString()
                     + " Elapsed : " + GlobalVar.es1.ToString() + "," + GlobalVar.es2.ToString() + "," + GlobalVar.es3.ToString() + "," + GlobalVar.es4.ToString()
                     + " mut : " + GlobalVar.mutCtr.ToString()
                     + " ID : " + GlobalVar.myUniqueID.ToString()
-                    + " worst : " + GlobalVar.worstFrame.ToString()
+                    + " start : " + GlobalVar.CMIXstart[0].ToString()
                     );
             }
 
@@ -309,14 +330,15 @@ namespace buildRT
             double tempFreq = 0.0;
             double tempPan = 0.0;
             double tempAmp = 0.0;
+            int tempShift = 0;
             bool playFeature = false;
             string waveName = "waves";
             string envName = "env1";
             double durIncrement = 0.0;
-            double secondsInFrame = 0.0;
-  //          double playThreshold = 10000;
+ //           double playThreshold = 2000;
             double playThreshold = 0;
             double playCalc = 0;
+            int cycleSamples = 0;
 
             GlobalVar.scoreLines = 0;
             //loop through events
@@ -327,57 +349,123 @@ namespace buildRT
                 playFeature = true; // test
                 GlobalVar.CMIXplay[eventX] = 0;
 
-                tempFreq = GlobalVar.freqLookup[GlobalVar.CMIXfreq[eventX]];
+                tempPan = 0;
                 tempAmp = GlobalVar.CMIXamp[eventX];
-                tempDur = GlobalVar.CMIXdur[eventX];
 
                 if (tempAmp > ((256 * 128) - 1))
                 {
                     tempAmp = tempAmp - (256 * 128);
-         //           GlobalVar.CMIXstart[eventX] = GlobalVar.CMIXstart[eventX] + 256;
                     playFeature = false;
                 }
 
                 envName = "env" + GlobalVar.CMIXenv[eventX].ToString();
 
-                tempStart = GlobalVar.CMIXstart[eventX]; // 0-255 samples offset
-       //         tempStart = tempStart + 24;//dsm change
+                tempShift = GlobalVar.CMIXshift[eventX];
+                GlobalVar.skipCtr = tempShift;
+                if (tempShift > 127)
+                {
+//                    GlobalVar.skipCtr++;
+                    tempShift = tempShift - 128;
+                    if (GlobalVar.CMIXfreq[eventX] > freqShift)
+                        GlobalVar.CMIXfreq[eventX] = GlobalVar.CMIXfreq[eventX] - freqShift;
+                    // shift freq left
+                }
+                if (tempShift > 63)
+                {
+  //                  GlobalVar.skipCtr++;
+                    tempShift = tempShift - 64;
+                    if (GlobalVar.CMIXfreq[eventX] < ((256*256)- (1 + freqShift)))
+                        GlobalVar.CMIXfreq[eventX] = GlobalVar.CMIXfreq[eventX] + freqShift;
+                    // shift freq right
+                }
 
-                //duration 
-                // first find how many cycles fit in a frame
-                // come up with an interval that includes whole cycles
+                tempFreq = GlobalVar.freqLookup[GlobalVar.CMIXfreq[eventX]];
+                
+                if (tempShift > 31)
+                {
+    //                GlobalVar.skipCtr++;
+                    tempShift = tempShift - 32;
+                    cycleSamples = (int)Math.Round((samplesSecond / tempFreq), 0);
+                    if (GlobalVar.CMIXstart[eventX] >= cycleSamples)
+                        GlobalVar.CMIXstart[eventX] = GlobalVar.CMIXstart[eventX] - cycleSamples;
+                    // shift start left  how many samples in a wave?  need freq first
+                }
+                if (tempShift > 15)
+                {
+      //              GlobalVar.skipCtr++;
+                    tempShift = tempShift - 16;
+                    cycleSamples = (int)Math.Round((samplesSecond / tempFreq),0);
+                    if (GlobalVar.CMIXstart[eventX] < (256*256) - cycleSamples)
+                        GlobalVar.CMIXstart[eventX] = GlobalVar.CMIXstart[eventX] + cycleSamples;
+                    // shift start right
+                }
+                if (tempShift > 7)
+                {
+        //            GlobalVar.skipCtr++;
+                    tempShift = tempShift - 8;
+                    cycleSamples = (int)Math.Round((samplesSecond / tempFreq), 0);
+                    if (GlobalVar.CMIXdur[eventX] >= cycleSamples)
+                        GlobalVar.CMIXdur[eventX] = GlobalVar.CMIXdur[eventX] - cycleSamples;
+                    // shift end left
+                }
+                if (tempShift > 3)
+                {
+          //          GlobalVar.skipCtr++;
+                    tempShift = tempShift - 4;
+                    cycleSamples = (int)Math.Round((samplesSecond / tempFreq), 0);
+                    if (GlobalVar.CMIXdur[eventX] < (256 * 256) - cycleSamples)
+                        GlobalVar.CMIXdur[eventX] = GlobalVar.CMIXdur[eventX] + cycleSamples;
+                    // shift end right
+                }
+                if (tempShift > 1)
+                {
+            //        GlobalVar.skipCtr++;
+                    tempShift = tempShift - 2;
+                    cycleSamples = (int)Math.Round((samplesSecond / tempFreq), 0);
+                    if (GlobalVar.CMIXstart[eventX] >= cycleSamples)
+                        GlobalVar.CMIXstart[eventX] = GlobalVar.CMIXstart[eventX] - cycleSamples;
+                    if (GlobalVar.CMIXdur[eventX] >= cycleSamples)
+                        GlobalVar.CMIXdur[eventX] = GlobalVar.CMIXdur[eventX] - cycleSamples;
+                    // shift both left
+                }
+                if (tempShift > 0)
+                {
+              //      GlobalVar.skipCtr++;
+                    cycleSamples = (int)Math.Round((samplesSecond / tempFreq), 0);
+                    if (GlobalVar.CMIXstart[eventX] < (256 * 256) - cycleSamples)
+                        GlobalVar.CMIXstart[eventX] = GlobalVar.CMIXstart[eventX] + cycleSamples;
+                    if (GlobalVar.CMIXdur[eventX] < (256 * 256) - cycleSamples)
+                        GlobalVar.CMIXdur[eventX] = GlobalVar.CMIXdur[eventX] + cycleSamples;
+                    tempShift = 0;
+                    // shift both right
+                }
+                GlobalVar.CMIXshift[eventX] = tempShift;
+
+                tempStart = GlobalVar.CMIXstart[eventX];
+                tempDur = GlobalVar.CMIXdur[eventX];
 
                 tempLength = (Convert.ToDouble((GlobalVar.samples / samplesSecond))); // length in seconds
-                secondsInFrame = tempLength / scoreFrames;
 
                 durIncrement = 1 / samplesSecond;
                 tempDur = tempDur * durIncrement;
 
-                tempOffset = (eventX * tempLength) / eventsThisRun;
-                tempStart = (tempStart / samplesSecond); // start offset in samples
-      //          tempStart = tempStart + tempOffset;
+                //        tempOffset = (eventX * tempLength) / eventsThisRun;
+                //            tempStart = tempStart + tempOffset;
 
-                tempPan = 0;
+                tempStart = (tempStart / samplesSecond); // start offset in samples
+                //          tempStart = tempStart + tempOffset;
+
+//                tempStart = (eventX * 0.25);
+  //              tempDur = 0.25;
 
                 if ((tempStart + tempDur) > tempLength)
                     tempDur = tempLength - tempStart;
-//                    playFeature = false;  //  don't play past the end of the target file
 
                 if (tempDur < 0.0)
                     tempDur = 0.0;
 
                 if (tempStart < 0.0)
                     tempStart = 0.0;
-                
-                // DSM
-//                if (tempFreq < 40.0)
- //                   tempAmp = 0.0;
-  //              if (tempFreq > 440.0)
-   //                 tempAmp = 0.0;
-//                if (tempDur < 0.05)
-//                    tempAmp = 0.0;
-//                if (tempAmp < 2000.0)
-//                    tempAmp = 0.0;
 
                 playCalc = tempDur * tempAmp;
                 if (playCalc < playThreshold)
@@ -385,7 +473,6 @@ namespace buildRT
 
                 if ((tempAmp == 0) || (tempFreq == 0) || (tempDur == 0))
                     playFeature = false;
-
 
                 if ((playFeature))
                 {
@@ -397,7 +484,8 @@ namespace buildRT
                         + Convert.ToString(tempAmp) + ","
                         + Convert.ToString(tempFreq) + ","
                         + Convert.ToString(tempPan) + "," + waveName + ")"
-                        +  "//comments, " + Convert.ToString(tempAmp * tempDur));
+                        +  "//comments, " + Convert.ToString(tempAmp * tempDur) + ","
+                        + eventX.ToString());
                 }
 
                 eventX++;
@@ -548,17 +636,17 @@ namespace buildRT
             for (int eventX = 0; eventX < eventsThisRun; eventX++)
             {
                 tempScore = -1;
-                calcStart = GlobalVar.samples / eventsThisRun;
-                calcStart = eventX * calcStart;
-                tempStart = Convert.ToInt64(calcStart);
+//                calcStart = GlobalVar.samples / eventsThisRun;
+//                calcStart = eventX * calcStart;
+//                tempStart = Convert.ToInt64(calcStart);
                 tempStart = 0;  // dsm no offset this run
                 tempStart = tempStart + GlobalVar.CMIXstart[eventX]; // event start in samples
                 if (tempStart < 0) tempStart = 0;
                 tempEnd = tempStart + GlobalVar.CMIXdur[eventX];
                 if (tempEnd > GlobalVar.samples) tempEnd = GlobalVar.samples;
 
-                if (tempEnd.Equals(tempStart))
-                    tempEnd = tempStart + 1;
+//                if (tempEnd.Equals(tempStart))
+//                    tempEnd = tempStart + 1;
 
                 if (GlobalVar.CMIXplay[eventX] > 0)
                 {
@@ -628,7 +716,27 @@ namespace buildRT
                 GlobalVar.CMIXenv[i] = GlobalVar.features[4 + (i * CMIXSize)];
                 GlobalVar.CMIXdur[i] = GlobalVar.features[5 + (i * CMIXSize)] + (256 * GlobalVar.features[6 + (i * CMIXSize)]);
                 GlobalVar.CMIXstart[i] = GlobalVar.features[7 + (i * CMIXSize)] + (256 * GlobalVar.features[8 + (i * CMIXSize)]);
+                GlobalVar.CMIXshift[i] = GlobalVar.features[9 + (i * CMIXSize)];
                 //                GlobalVar.CMIXstart[i] = GlobalVar.features[6 + (i * CMIXSize)] + (256 * GlobalVar.features[7 + (i * CMIXSize)]);
+            }
+        }
+
+        static void BackFromParamaters()
+        {
+            int CMIXSize = bytesPerEvent;
+
+            for (int i = 0; i < eventsThisRun; i++)
+            {
+                GlobalVar.features[1 + (i * CMIXSize)] = GlobalVar.CMIXamp[i] / 256;
+                GlobalVar.features[0 + (i * CMIXSize)] = GlobalVar.CMIXamp[i] - (256 * GlobalVar.features[1 + (i * CMIXSize)]);
+                GlobalVar.features[3 + (i * CMIXSize)] = GlobalVar.CMIXfreq[i] / 256;
+                GlobalVar.features[2 + (i * CMIXSize)] = GlobalVar.CMIXfreq[i] - (256 * GlobalVar.features[3 + (i * CMIXSize)]);
+                GlobalVar.features[4 + (i * CMIXSize)] = GlobalVar.CMIXenv[i];
+                GlobalVar.features[6 + (i * CMIXSize)] = GlobalVar.CMIXdur[i] / 256;
+                GlobalVar.features[5 + (i * CMIXSize)] = GlobalVar.CMIXdur[i] - (256 * GlobalVar.features[6 + (i * CMIXSize)]);
+                GlobalVar.features[8 + (i * CMIXSize)] = GlobalVar.CMIXstart[i] / 256;
+                GlobalVar.features[7 + (i * CMIXSize)] = GlobalVar.CMIXstart[i] - (256 * GlobalVar.features[8 + (i * CMIXSize)]);
+                GlobalVar.features[9 + (i * CMIXSize)] = GlobalVar.CMIXshift[i];
             }
         }
 

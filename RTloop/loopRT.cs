@@ -15,8 +15,8 @@ namespace loopRT
     class loopRT
     {
         const int scoreFrames = 1;
-        const int eventsThisRun = 128;
-        const int bytesPerEvent = 9;
+        const int eventsThisRun = 4;
+        const int bytesPerEvent = 10;
         const int candidates = 50;
         const int parentDist = 50;
 
@@ -279,9 +279,9 @@ namespace loopRT
                         GlobalVar.features[i, parent] = 255;
                     if (GlobalVar.features[i, parent] < 0)
                         GlobalVar.features[i, parent] = 0;
-      //              if ((GlobalVar.random.Next(0, 100) < 150))//
-          //                                GlobalVar.features[i, 0] = 0; // dsm experiment start with mostly zero
-       //         GlobalVar.features[i, parent] = GlobalVar.random.Next(0, 255);
+    //                if ((GlobalVar.random.Next(0, 100) < 150))//
+      //                                    GlobalVar.features[i, 0] = 0; // dsm experiment start with mostly zero
+    //            GlobalVar.features[i, parent] = GlobalVar.random.Next(0, 255);
 //                    if ((GlobalVar.random.Next(0, 100) < 50) && (parent.Equals(0)))
   //                      GlobalVar.features[i, 0] = 0; // dsm experiment start with mostly zero
 
@@ -419,9 +419,9 @@ namespace loopRT
                 int frameSize = (GlobalVar.featureCount / scoreFrames);
 
                 GlobalVar.xoverType = 2; // 0 is random, 1 is xover
-                if ((GlobalVar.random.Next(0, 100) < 10))
+                if ((GlobalVar.random.Next(0, 100) < 20))
                     GlobalVar.xoverType = 0; // 
-                if ((GlobalVar.random.Next(0, 100) < 10))
+                if ((GlobalVar.random.Next(0, 100) < 20))
                     GlobalVar.xoverType = 1; // 
                 int xoverLoc = GlobalVar.random.Next(0, frameSize);
 
@@ -443,12 +443,10 @@ namespace loopRT
                         long fScore2 = GlobalVar.eventScore[FeatureNDX, xP2];
 
                         parentIndex = xP1;
-                        if (fScore2 > fScore1) // dsm
+                        if ((GlobalVar.xoverType.Equals(2)) && (fScore2 > fScore1)) // dsm
                             parentIndex = xP2;
                         if ((GlobalVar.xoverType.Equals(0)) && (GlobalVar.random.Next(0, 100) < 50)) // - random no crossover
                             parentIndex = xP2;
-//                        if ((GlobalVar.xoverType.Equals(0)) && (GlobalVar.random.Next(0, 100) < 20)) // - random no crossover
-//                            parentIndex = xP1;
                        if ((GlobalVar.xoverType.Equals(1)) && (fx > xoverLoc)) // - crossover
                             parentIndex = xP2;
 
@@ -464,12 +462,21 @@ namespace loopRT
                     }
                 } 
             }
-            
+
+            int mutThisOne = GlobalVar.random.Next(0, ((10*GlobalVar.featureCount)/9));
             for (int i = 0; i < GlobalVar.featureCount; i++)
             {
                 bool mutAway = true;
-                if (GlobalVar.random.Next(0, (GlobalVar.featureCount * 100)) < GlobalVar.MutPer100Members)
+                if (i.Equals(mutThisOne)) // mutate exactly one feature
                 {
+//                    GlobalVar.mutCtr++;
+//                    GlobalVar.features[i, 0] = GlobalVar.random.Next(0, 255);
+//                    if ((GlobalVar.random.Next(0, 100) < 20) && ((i + 1) < GlobalVar.featureCount))
+//                    {
+//                        GlobalVar.features[i + 1, 0] = GlobalVar.random.Next(0, 255);
+//                        GlobalVar.mutCtr++;
+//                    }
+//                    mutAway = true;
                     while (mutAway) 
                     {
                         GlobalVar.mutCtr++;
@@ -482,9 +489,15 @@ namespace loopRT
                             GlobalVar.features[i, 0] = GlobalVar.features[i, 0] - (2 * mutateValue);
                         if (GlobalVar.features[i, 0] > 255)
                             GlobalVar.features[i, 0] = GlobalVar.features[i, 0] - (2 * mutateValue);
-                        if (GlobalVar.random.Next(0, (100)) < 90)
+                        if (GlobalVar.random.Next(0, (100)) < 65)
                         {
                             mutAway = false;
+                            if (GlobalVar.random.Next(0, (100)) < 5)
+                            {
+                                mutThisOne = GlobalVar.random.Next(0, ((10 * GlobalVar.featureCount) / 9));
+                                i = mutThisOne - 1;
+                            }
+
                         }
                     }
 
